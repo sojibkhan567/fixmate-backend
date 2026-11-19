@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { sendSuccess } from "../utils/apiResponse.js";
 import usersRouter from "./users/index.js";
+import serviceRouter from "./services/index.js";
 
 const router = Router();
 
@@ -10,5 +11,6 @@ router.get("/test", (req, res) => {
 });
 
 router.use("/users", usersRouter);
+router.use("/services", serviceRouter);
 
 export default router;

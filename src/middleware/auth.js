@@ -10,7 +10,7 @@ export const checkAuthenticatedUser = async (req, res, next) => {
 
   const parseToken = token.split(" ")[1]; // Assuming the token is in the format "Bearer <token>"
 
-  // console.log({ parseToken });
+  //console.log({ parseToken });
 
   try {
     const JWKS = createRemoteJWKSet(
