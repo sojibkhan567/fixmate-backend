@@ -99,6 +99,94 @@ serviceRouter.patch(
   },
 );
 
+/** Update services by technician */
+serviceRouter.patch("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    // Validate MongoDB ID
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid service ID",
+      });
+    }
+
+    // Prevent empty update
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No fields provided to update",
+      });
+    }
+
+    // Fields that are allowed to be updated
+    const allowedFields = [
+      "title",
+      "category",
+      "description",
+      "price",
+      "serviceMode",
+      "image",
+      "status",
+      "approvalStatus",
+    ];
+
+    // Only allow approved fields
+    const updateData = { approvalStatus: "pending" };
+
+    Object.keys(updates).forEach((key) => {
+      if (allowedFields.includes(key)) {
+        updateData[key] = updates[key];
+      }
+    });
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid fields to update",
+      });
+    }
+
+    // Add updatedAt
+    updateData.updatedAt = new Date();
+
+    const result = await servicesCollection.findOneAndUpdate(
+      {
+        _id: new ObjectId(id),
+      },
+      {
+        $set: updateData,
+      },
+      {
+        returnDocument: "after",
+      },
+    );
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: "Service not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Service updated successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Update service error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to update service",
+      error: error.message,
+    });
+  }
+});
+
 /** delete services */
 serviceRouter.delete("/:id", checkAuthenticatedUser, async (req, res) => {
   try {
