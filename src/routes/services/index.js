@@ -11,7 +11,8 @@ const serviceRouter = Router();
 
 serviceRouter.post("/", async (req, res) => {
   const data = req.body;
-  const result = await servicesCollection.insertOne(data);
+  const servicesData = { ...data, createdAt: new Date() };
+  const result = await servicesCollection.insertOne(servicesData);
   //res.send(result);
   sendSuccess(res, result, "Service added successfully");
 });
