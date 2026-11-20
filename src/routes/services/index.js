@@ -9,6 +9,9 @@ import { checkAuthenticatedUser } from "../../middleware/auth.js";
 
 const serviceRouter = Router();
 
+/**
+ * Create services data
+ * */
 serviceRouter.post("/", async (req, res) => {
   const data = req.body;
   const servicesData = { ...data, createdAt: new Date() };
@@ -18,10 +21,98 @@ serviceRouter.post("/", async (req, res) => {
 });
 
 /**
- * Get authenticate services route
- * GET: /services
+ * Get services for homepage
  */
-serviceRouter.get("/", checkAuthenticatedUser, async (req, res) => {
+serviceRouter.get("/", async (req, res) => {
+  try {
+    const { approvalStatus, isAvailable, sort, search, category, serviceMode } =
+      req.query;
+    const query = {};
+
+    // Approval status
+    if (approvalStatus) {
+      query.approvalStatus = approvalStatus;
+    }
+
+    // Availability
+    if (isAvailable !== undefined) {
+      query.isAvailable = isAvailable === "true";
+    }
+
+    // Category
+    if (category) {
+      query.category = category;
+    }
+
+    // Service mode
+    if (serviceMode) {
+      query.serviceMode = serviceMode;
+    }
+
+    // Search
+    if (search) {
+      query.$or = [
+        {
+          title: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          description: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          category: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+        {
+          technicianName: {
+            $regex: search,
+            $options: "i",
+          },
+        },
+      ];
+    }
+
+    // Sort
+    let sortOption = { createdAt: -1 };
+
+    if (sort === "price_asc") {
+      sortOption = { basePrice: 1 };
+    } else if (sort === "price_desc") {
+      sortOption = { basePrice: -1 };
+    } else if (sort === "newest") {
+      sortOption = { createdAt: -1 };
+    } else if (sort === "oldest") {
+      sortOption = { createdAt: 1 };
+    }
+
+    const services = await servicesCollection
+      .find(query)
+      .sort(sortOption)
+      .toArray();
+
+    sendSuccess(res, services, "Services fetched successfully");
+  } catch (error) {
+    console.error("Get services error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch services",
+    });
+  }
+});
+
+/**
+ * Get authenticate services route
+ * GET: /services/technician
+ */
+serviceRouter.get("/technician", checkAuthenticatedUser, async (req, res) => {
   try {
     const email = req.user.email;
 
