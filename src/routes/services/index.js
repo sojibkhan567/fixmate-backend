@@ -2,7 +2,7 @@ import { Router } from "express";
 import { ObjectId } from "mongodb";
 import { sendSuccess } from "../../utils/apiResponse.js";
 import { ApiError } from "../../utils/ApiError.js";
-import { servicesCollection } from "../../config/db.js";
+import { servicesCollection, usersCollection } from "../../config/db.js";
 import { checkAuthenticatedUser } from "../../middleware/auth.js";
 
 // Mounted at /api/services
@@ -109,25 +109,44 @@ serviceRouter.get("/", async (req, res) => {
 });
 
 /**
- * Get authenticate services route
- * GET: /services/technician
- */
-serviceRouter.get("/technician", checkAuthenticatedUser, async (req, res) => {
+ * Get services for details page
+/** GET /services/:id → returns the service, or 404 when missing / not approved / unavailable */
+serviceRouter.get("/:id", async (req, res) => {
   try {
-    const email = req.user.email;
+    const { id } = req.params;
 
-    const result = await servicesCollection
-      .find({ technicianEmail: email })
-      .toArray();
+    if (!ObjectId.isValid(id)) {
+      return res.status(404).json({ message: "Service not found" });
+    }
 
-    sendSuccess(res, result, "Services retrieved successfully");
-  } catch (error) {
-    console.error(error);
+    const service = await servicesCollection.findOne({ _id: new ObjectId(id) });
 
-    res.status(500).json({
-      success: false,
-      message: "Failed to retrieve services",
+    if (
+      !service ||
+      service.approvalStatus !== "approved" ||
+      service.isAvailable === false
+    ) {
+      return res.status(404).json({ message: "Service not found" });
+    }
+
+    const technician = service.technicianEmail
+      ? await usersCollection.findOne(
+          { email: service.technicianEmail },
+          { projection: { password: 0 } },
+        )
+      : null;
+
+    const { _id, ...rest } = service;
+
+    return res.status(200).json({
+      id: _id.toString(),
+      ...rest,
+      technician: technician
+        ? { ...technician, id: technician._id.toString(), _id: undefined }
+        : null,
     });
+  } catch (error) {
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 
@@ -139,9 +158,6 @@ serviceRouter.patch(
     try {
       const { id } = req.params;
       const { isAvailable } = req.body;
-
-      console.log({ id, isAvailable });
-      console.log(req.user.email);
 
       if (typeof isAvailable !== "boolean") {
         return res.status(400).json({

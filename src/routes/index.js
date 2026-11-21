@@ -3,6 +3,7 @@ import { sendSuccess } from "../utils/apiResponse.js";
 import usersRouter from "./users/index.js";
 import serviceRouter from "./services/index.js";
 import adminRouter from "./admin/index.js";
+import technicianRouter from "./technician/index.js";
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.get("/test", (req, res) => {
 router.use("/users", usersRouter);
 router.use("/services", serviceRouter);
 router.use("/admin", adminRouter);
+router.use("/technician", technicianRouter);
 
 export default router;
