@@ -4,6 +4,7 @@ import usersRouter from "./users/index.js";
 import serviceRouter from "./services/index.js";
 import adminRouter from "./admin/index.js";
 import technicianRouter from "./technician/index.js";
+import bookingRouter from "./bookings/index.js";
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use("/users", usersRouter);
 router.use("/services", serviceRouter);
 router.use("/admin", adminRouter);
 router.use("/technician", technicianRouter);
+router.use("/bookings", bookingRouter);
 
 export default router;
