@@ -52,45 +52,6 @@ export const checkAuthenticatedUser = async (req, res, next) => {
   }
 };
 
-// const JWKS = createRemoteJWKSet(
-//   new URL(`${process.env.CLIENT_URL}/api/auth/jwks`),
-// );
-
-// export const checkAuthenticatedUser = async (req, res, next) => {
-//   try {
-//     const authHeader = req.headers.authorization;
-
-//     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-//       return res.status(401).json({
-//         success: false,
-//         message: "Access denied. Token required.",
-//       });
-//     }
-
-//     const token = authHeader.split(" ")[1];
-
-//     const { payload } = await jwtVerify(token, JWKS, {
-//       issuer: process.env.CLIENT_URL,
-//       audience: process.env.CLIENT_URL,
-//     });
-
-//     req.user = {
-//       id: payload.sub,
-//       email: payload.email,
-//       name: payload.name,
-//       role: payload.role,
-//     };
-
-//     next();
-//   } catch (error) {
-//     console.error("JWT error:", error.code, error.message);
-//     return res.status(401).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
-
 export const verifyRole = (roles) => {
   return (req, res, next) => {
     // Authenticated user role from the token

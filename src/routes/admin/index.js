@@ -22,7 +22,6 @@ adminRouter.get(
         .find({})
         .sort({ createdAt: -1 })
         .toArray();
-      console.log(services);
       res.json(services);
     } catch (err) {
       console.error(err);
