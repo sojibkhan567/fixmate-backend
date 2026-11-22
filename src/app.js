@@ -11,7 +11,13 @@ import { stripe } from "./config/stripe.js";
 
 const app = express();
 // Only the frontend origin may call this API from a browser.
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL,
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 // Parse JSON request bodies.
 app.use(express.json());
@@ -20,12 +26,6 @@ app.use(express.json());
  * POST /api/stripe/webhook
  * Stripe → your server. The source of truth for "paid".
  * Needs the RAW body, so mount this BEFORE express.json():
- *
- *   app.use("/api/stripe/webhook", require("./routes/webhook.routes"));
- *   app.use(express.json());
- *
- * env: STRIPE_WEBHOOK_SECRET=whsec_...
- * Local testing:  stripe listen --forward-to localhost:5000/api/stripe/webhook
  */
 app.post("/", express.raw({ type: "application/json" }), async (req, res) => {
   let event;
