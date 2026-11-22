@@ -4,6 +4,8 @@ import { env } from "./config/env.js";
 import routes from "./routes/index.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { markBookingPaid } from "./utils/payment.js";
+import { stripe } from "./config/stripe.js";
 
 // Builds the Express app. Does not start listening (see src/index.js).
 
@@ -13,6 +15,47 @@ app.use(cors({ origin: env.CLIENT_URL }));
 
 // Parse JSON request bodies.
 app.use(express.json());
+
+/**
+ * POST /api/stripe/webhook
+ * Stripe → your server. The source of truth for "paid".
+ * Needs the RAW body, so mount this BEFORE express.json():
+ *
+ *   app.use("/api/stripe/webhook", require("./routes/webhook.routes"));
+ *   app.use(express.json());
+ *
+ * env: STRIPE_WEBHOOK_SECRET=whsec_...
+ * Local testing:  stripe listen --forward-to localhost:5000/api/stripe/webhook
+ */
+app.post("/", express.raw({ type: "application/json" }), async (req, res) => {
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      req.headers["stripe-signature"],
+      process.env.STRIPE_WEBHOOK_SECRET,
+    );
+  } catch (err) {
+    console.error("Stripe webhook signature failed:", err.message);
+    return res.status(400).send("Invalid signature");
+  }
+
+  try {
+    if (
+      event.type === "checkout.session.completed" ||
+      event.type === "checkout.session.async_payment_succeeded"
+    ) {
+      const session = event.data.object;
+      if (session.payment_status === "paid") {
+        await markBookingPaid(session.metadata?.bookingId, session);
+      }
+    }
+    res.json({ received: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Webhook handler failed"); // Stripe will retry
+  }
+});
 
 app.use("/", routes);
 
