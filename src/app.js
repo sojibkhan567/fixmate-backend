@@ -11,7 +11,7 @@ import { stripe } from "./config/stripe.js";
 
 const app = express();
 // Only the frontend origin may call this API from a browser.
-app.use(cors({ origin: env.CLIENT_URL }));
+app.use(cors({ origin: env.CLIENT_URL, credentials: true }));
 
 // Parse JSON request bodies.
 app.use(express.json());
