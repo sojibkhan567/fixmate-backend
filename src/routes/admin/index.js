@@ -1,108 +1,78 @@
-import express from "express";
-import { servicesCollection } from "../../config/db.js";
+import { Router } from "express";
+import { checkAuthenticatedUser, verifyRole } from "../../middleware/auth.js";
+import { connectDB } from "../../config/db.js";
 import { ObjectId } from "mongodb";
 
-const adminRouter = express.Router();
-
-// GET /api/admin/services
-adminRouter.get("/services", async (req, res) => {
-  try {
-    const { approvalStatus, search, category } = req.query;
-
-    const query = {};
-
-    // Filter by approval status
-    if (approvalStatus) {
-      query.approvalStatus = approvalStatus;
-    }
-
-    // Filter by category
-    if (category) {
-      query.category = category;
-    }
-
-    // Search service
-    if (search) {
-      query.$or = [
-        {
-          title: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-        {
-          description: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-        {
-          category: {
-            $regex: search,
-            $options: "i",
-          },
-        },
-      ];
-    }
-
-    const services = await servicesCollection
-      .find(query)
-      .sort({ createdAt: -1 })
-      .toArray();
-    res.status(200).json({
-      success: true,
-      message: "Services retrieved successfully",
-      data: services,
-    });
-  } catch (error) {
-    console.error("Get admin services error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to retrieve services",
-    });
-  }
-});
+const adminRouter = Router();
+//adminRouter.use(checkAuthenticatedUser, verifyRole); // everything below is admin only
 
 /**
- * PATCH: /admin/services/:id
+ * GET /admin/services
+ * Every service from every technician (any approvalStatus), newest first.
  */
-// PATCH /api/admin/services/:id
-adminRouter.patch("/services/:id", async (req, res) => {
-  try {
-    const { approvalStatus } = req.body;
-
-    if (!["approved", "rejected"].includes(approvalStatus)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid approval status" });
+adminRouter.get(
+  "/services",
+  checkAuthenticatedUser,
+  verifyRole(["admin"]),
+  async (req, res) => {
+    try {
+      const db = await connectDB();
+      const services = await db
+        .collection("services")
+        .find({})
+        .sort({ createdAt: -1 })
+        .toArray();
+      console.log(services);
+      res.json(services);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Something went wrong" });
     }
-    if (!ObjectId.isValid(req.params.id)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid service id" });
+  },
+);
+
+/**
+ * PATCH /api/admin/services/:id/approval
+ * Body: { approvalStatus: "approved" | "rejected" }
+ * Works from any current status (so a wrong decision can be reversed).
+ */
+adminRouter.patch(
+  "/services/:id/approval",
+  checkAuthenticatedUser,
+  verifyRole(["admin"]),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { approvalStatus } = req.body ?? {};
+
+      if (!ObjectId.isValid(id))
+        return res.status(404).json({ error: "Service not found" });
+      if (!["approved", "rejected"].includes(approvalStatus))
+        return res
+          .status(400)
+          .json({ error: "approvalStatus must be approved or rejected" });
+
+      const db = await connectDB();
+      const result = await db.collection("services").updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            approvalStatus,
+            reviewedAt: new Date(),
+            reviewedBy: req.user.email,
+            updatedAt: new Date(),
+          },
+        },
+      );
+      if (result.matchedCount === 0)
+        return res.status(404).json({ error: "Service not found" });
+
+      res.json({ ok: true, approvalStatus });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Something went wrong" });
     }
-
-    const result = await servicesCollection.updateOne(
-      { _id: new ObjectId(req.params.id) },
-      { $set: { approvalStatus, updatedAt: new Date() } },
-    );
-
-    if (result.matchedCount === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Service not found" });
-    }
-
-    res
-      .status(200)
-      .json({ success: true, message: `Service ${approvalStatus}` });
-  } catch (error) {
-    console.error("Update service status error:", error);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to update service" });
-  }
-});
+  },
+);
 
 export default adminRouter;

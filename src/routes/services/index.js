@@ -1,13 +1,63 @@
 import { Router } from "express";
 import { ObjectId } from "mongodb";
 import { sendSuccess } from "../../utils/apiResponse.js";
-import { ApiError } from "../../utils/ApiError.js";
-import { servicesCollection, usersCollection } from "../../config/db.js";
+import {
+  connectDB,
+  servicesCollection,
+  usersCollection,
+} from "../../config/db.js";
 import { checkAuthenticatedUser } from "../../middleware/auth.js";
 
 // Mounted at /api/services
 
 const serviceRouter = Router();
+
+/**
+ * GET /api/services/featured
+ * Public. 6 latest approved + available services, newest first, technician attached.
+ * (Keep this above "/:id".)
+ */
+serviceRouter.get("/featured", async (req, res) => {
+  try {
+    const db = await connectDB();
+    const services = await db
+      .collection("services")
+      .find({ approvalStatus: "approved", isAvailable: true })
+      .sort({ createdAt: -1 })
+      .limit(6)
+      .toArray();
+
+    const ids = [...new Set(services.map((s) => String(s.technicianId)))]
+      .filter((id) => ObjectId.isValid(id))
+      .map((id) => new ObjectId(id));
+
+    const techs = ids.length
+      ? await db
+          .collection("users")
+          .find(
+            { _id: { $in: ids } },
+            { projection: { name: 1, image: 1, area: 1, bio: 1 } },
+          )
+          .toArray()
+      : [];
+    const byId = new Map(techs.map((t) => [String(t._id), t]));
+
+    res.json(
+      services.map((s) => {
+        const t = byId.get(String(s.technicianId));
+        return {
+          ...s,
+          technician: t
+            ? { name: t.name, image: t.image, area: t.area, bio: t.bio }
+            : undefined,
+        };
+      }),
+    );
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Something went wrong" });
+  }
+});
 
 /**
  * Create services data

@@ -1,7 +1,11 @@
 import { Router } from "express";
 import { checkAuthenticatedUser, verifyRole } from "../../middleware/auth.js";
 import { ObjectId } from "mongodb";
-import { bookingCollection, servicesCollection } from "../../config/db.js";
+import {
+  bookingCollection,
+  connectDB,
+  servicesCollection,
+} from "../../config/db.js";
 import { stripe } from "../../config/stripe.js";
 import { markBookingPaid } from "../../utils/payment.js";
 
@@ -159,6 +163,113 @@ bookingRouter.patch(
           : res.status(404).json({ error: "Booking not found" });
       }
       res.json({ ok: true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Something went wrong" });
+    }
+  },
+);
+
+/**
+ * GET /api/bookings/technician
+ * Technician only. Every booking assigned to the logged-in technician (matched by email).
+ */
+bookingRouter.get(
+  "/technician",
+  checkAuthenticatedUser,
+  verifyRole(["technician"]),
+  async (req, res) => {
+    try {
+      const db = await connectDB();
+      const bookings = await db
+        .collection("bookings")
+        .find({ "technician.email": req.user.email })
+        .sort({ createdAt: -1 })
+        .toArray();
+      res.json(bookings);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Something went wrong" });
+    }
+  },
+);
+
+/**
+ * PATCH /api/bookings/:id/status
+ * Technician only, own bookings. Body: { status, finalAmount? }
+ *   requested  → accepted | rejected
+ *   accepted   → inprogress
+ *   inprogress → completed   (finalAmount required, > 0)
+ * One atomic update filtered on the current status, so a stale page can't skip a step.
+ */
+const TRANSITIONS = {
+  accepted: "requested",
+  rejected: "requested",
+  inprogress: "accepted",
+  completed: "inprogress",
+};
+
+bookingRouter.patch(
+  "/:id/status",
+  checkAuthenticatedUser,
+  verifyRole(["technician"]),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, finalAmount } = req.body ?? {};
+
+      if (!ObjectId.isValid(id))
+        return res.status(404).json({ error: "Booking not found" });
+      const from = TRANSITIONS[status];
+      if (!from) return res.status(400).json({ error: "Invalid status" });
+
+      const now = new Date();
+      const set = { status, updatedAt: now };
+
+      if (status === "completed") {
+        const amount = Number(finalAmount);
+        if (!Number.isFinite(amount) || amount <= 0)
+          return res.status(400).json({ error: "Enter a valid final amount" });
+        set.finalAmount = amount;
+        set.completedAt = now;
+      }
+      if (status === "accepted") set.acceptedAt = now;
+      if (status === "inprogress") set.startedAt = now;
+      if (status === "rejected") set.rejectedAt = now;
+
+      const db = await connectDB();
+      const result = await db
+        .collection("bookings")
+        .updateOne(
+          {
+            _id: new ObjectId(id),
+            "technician.email": req.user.email,
+            status: from,
+          },
+          { $set: set },
+        );
+
+      if (result.matchedCount === 0) {
+        const exists = await db
+          .collection("bookings")
+          .findOne(
+            { _id: new ObjectId(id), "technician.email": req.user.email },
+            { projection: { status: 1 } },
+          );
+        return exists
+          ? res
+              .status(409)
+              .json({
+                error: `This request is now "${exists.status}". Refresh and try again.`,
+              })
+          : res.status(404).json({ error: "Booking not found" });
+      }
+
+      res.json({
+        ok: true,
+        status,
+        ...(set.finalAmount != null && { finalAmount: set.finalAmount }),
+      });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: "Something went wrong" });
