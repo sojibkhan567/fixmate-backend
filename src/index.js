@@ -28,3 +28,5 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 start();
+
+export default app;
