@@ -10,7 +10,7 @@ export const checkAuthenticatedUser = async (req, res, next) => {
 
   const parseToken = token.split(" ")[1]; // Assuming the token is in the format "Bearer <token>"
 
-  console.log({ parseToken });
+  //console.log({ parseToken });
 
   try {
     const JWKS = createRemoteJWKSet(
@@ -35,8 +35,6 @@ export const checkAuthenticatedUser = async (req, res, next) => {
 
 export const verifyRole = (roles) => {
   return (req, res, next) => {
-    console.log(req.user, "req.user from verifyRole middleware");
-
     // Authenticated user role from the token
     const role = req.user?.role;
 
