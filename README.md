@@ -2,7 +2,7 @@
 
 REST API for **FixMate**, a repair-service marketplace where customers request repairs from verified technicians and pay after the job is completed.
 
-**Frontend repository:** see [`../services-details/README.md`](../services-details/README.md)
+**Frontend repository:** see [`https://github.com/sojibkhan567/fixmate-frontend`](https://github.com/sojibkhan567/fixmate-frontend)
 
 ## Purpose
 
