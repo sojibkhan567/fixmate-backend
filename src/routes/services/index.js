@@ -62,7 +62,7 @@ serviceRouter.get("/featured", async (req, res) => {
 /**
  * Create services data
  * */
-serviceRouter.post("/", async (req, res) => {
+serviceRouter.post("/", checkAuthenticatedUser, async (req, res) => {
   const data = req.body;
   const servicesData = { ...data, createdAt: new Date() };
   const result = await servicesCollection.insertOne(servicesData);

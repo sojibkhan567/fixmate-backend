@@ -47,7 +47,7 @@ export const checkAuthenticatedUser = async (req, res, next) => {
     };
     return next();
   } catch (e) {
-    console.error("JWT verification failed:", e.code || e.name, "-", e.message);
+    //console.error("JWT verification failed:", e.code || e.name, "-", e.message);
     return next(new ApiError(401, "Unauthorized: Invalid token"));
   }
 };
