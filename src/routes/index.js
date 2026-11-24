@@ -6,6 +6,7 @@ import adminRouter from "./admin/index.js";
 import technicianRouter from "./technician/index.js";
 import bookingRouter from "./bookings/index.js";
 import dashboardRouter from "./dashboard/index.js";
+import paymentRouter from "./payments/index.js";
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use("/admin", adminRouter);
 router.use("/technician", technicianRouter);
 router.use("/bookings", bookingRouter);
 router.use("/dashboard", dashboardRouter);
+router.use("/payments", paymentRouter);
 
 export default router;
